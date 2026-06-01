@@ -1,8 +1,9 @@
-import os, json, requests, subprocess
 import os
 
-print("ENV KEYS:")
-print(list(os.environ.keys()))
+print("BOT_TOKEN =", os.environ.get("BOT_TOKEN"))
+print("CHANNEL_IDS =", os.environ.get("CHANNEL_IDS"))
+exit()
+import os, json, requests, subprocess
 
 BOT_TOKEN = os.environ['BOT_TOKEN']
 CHANNEL_IDS = os.environ['CHANNEL_IDS'].split(',')  # একাধিক চ্যানেল
