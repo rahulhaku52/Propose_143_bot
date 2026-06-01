@@ -2,7 +2,7 @@ name: Auto Forward
 
 on:
   schedule:
-    - cron: '*/1 * * * *'   # প্রতি ২ মিনিটে
+    - cron: '*/1 * * * *'
   workflow_dispatch:
 
 jobs:
@@ -22,5 +22,5 @@ jobs:
       - name: Run forwarder
         env:
           BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
-          CHANNEL_ID: ${{ secrets.CHANNEL_ID }}
+          CHANNEL_IDS: ${{ secrets.CHANNEL_IDS }}
         run: python forwarder.py
