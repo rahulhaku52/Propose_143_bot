@@ -19,7 +19,6 @@ def load_last_ids():
     try:
         with open(LOG_FILE, "r", encoding="utf-8") as f:
             data = json.load(f)
-            # Ensure the loaded data is a dictionary
             if isinstance(data, dict):
                 return data
             else:
@@ -32,16 +31,17 @@ def save_last_ids(data):
         json.dump(data, f)
 
 def get_updates():
-    url = f"https://api.telegram.org/bot{BOT_TOKEN}/getUpdates?limit=100"
+    allowed = ["message", "channel_post"]
+    url = f"https://api.telegram.org/bot{BOT_TOKEN}/getUpdates?limit=100&allowed_updates={json.dumps(allowed)}"
     response = requests.get(url, timeout=20)
     return response.json()
 
-def forward_message(group_id, channel_id, message_id):
+def forward_message(group_id, from_chat_id, message_id):
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/forwardMessage"
 
     payload = {
         "chat_id": group_id,
-        "from_chat_id": channel_id,
+        "from_chat_id": from_chat_id,
         "message_id": message_id
     }
 
@@ -64,18 +64,33 @@ def main():
 
     for update in updates.get("result", []):
 
-        if "channel_post" not in update:
-            continue
+        # ==========================
+        # CHANNEL POSTS
+        # ==========================
+        if "channel_post" in update:
+            channel_id = str(update["channel_post"]["chat"]["id"])
+            message_id = update["channel_post"]["message_id"]
+            posts[channel_id] = message_id
+            print(f"📢 Found channel post: {channel_id} -> {message_id}")
 
-        channel_id = str(update["channel_post"]["chat"]["id"])
-        message_id = update["channel_post"]["message_id"]
+        # ==========================
+        # REGULAR GROUP MESSAGES
+        # ==========================
+        elif "message" in update:
+            msg = update["message"]
+            chat_id = str(msg["chat"]["id"])
+            message_id = msg["message_id"]
 
-        posts[channel_id] = message_id
-
-        print(f"📢 Found channel post: {channel_id} -> {message_id}")
+            # শুধু গ্রুপ/সুপারগ্রুপ থেকে আসা মেসেজ ফরওয়ার্ড করো (প্রাইভেট মেসেজ স্কিপ)
+            if msg["chat"]["type"] in ["group", "supergroup"]:
+                # সোর্স চ্যাট আইডি হিসেবে গ্রুপের আইডি ব্যবহার করো
+                # কিন্তু তুমি চাইলে শুধু নির্দিষ্ট সোর্স থেকেই ফরওয়ার্ড করতে পারো
+                if chat_id in CHANNEL_IDS:
+                    posts[chat_id] = message_id
+                    print(f"📢 Found group message: {chat_id} -> {message_id}")
 
     if not posts:
-        print("ℹ️ No channel posts")
+        print("ℹ️ No posts to forward")
         return
 
     last_ids = load_last_ids()
@@ -95,6 +110,10 @@ def main():
             continue
 
         for group_id in groups:
+
+            # নিজে নিজে ফরওয়ার্ড এড়িয়ে যাও (যেন লুপ না হয়)
+            if group_id == channel_id:
+                continue
 
             if forward_message(group_id, channel_id, message_id):
                 total_forwarded += 1
