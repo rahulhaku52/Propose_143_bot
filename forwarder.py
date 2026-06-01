@@ -18,7 +18,12 @@ def load_groups():
 def load_last_ids():
     try:
         with open(LOG_FILE, "r", encoding="utf-8") as f:
-            return json.load(f)
+            data = json.load(f)
+            # Ensure the loaded data is a dictionary
+            if isinstance(data, dict):
+                return data
+            else:
+                return {}
     except Exception:
         return {}
 
