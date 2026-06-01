@@ -22,5 +22,5 @@ jobs:
       - name: Run forwarder
         env:
           BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
-          CHANNEL_IDS: ${{ secrets.CHANNEL_IDS }}
+          CHANNEL_IDS: ${{ secrets.CHANNEL_IDS }}    # ← এই লাইনটা যোগ করুন
         run: python forwarder.py
