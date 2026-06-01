@@ -8,19 +8,34 @@ on:
 jobs:
   forward:
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - uses: actions/setup-python@v5
+      - name: Setup Python
+        uses: actions/setup-python@v5
         with:
-          python-version: '3.10'
+          python-version: "3.10"
 
-      - run: pip install requests
+      - name: Install Requests
+        run: pip install requests
 
-      - name: Run forwarder
+      - name: Debug Secrets
         env:
           BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
-          CHANNEL_IDS: ${{ secrets.CHANNEL_IDS }}    # ← এই লাইনটা যোগ করুন
+          CHANNEL_IDS: ${{ secrets.CHANNEL_IDS }}
+        run: |
+          echo "BOT_TOKEN Exists:"
+          [ -n "$BOT_TOKEN" ] && echo "YES" || echo "NO"
+
+          echo "CHANNEL_IDS Exists:"
+          [ -n "$CHANNEL_IDS" ] && echo "YES" || echo "NO"
+
+      - name: Run Forwarder
+        env:
+          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+          CHANNEL_IDS: ${{ secrets.CHANNEL_IDS }}
         run: python forwarder.py
