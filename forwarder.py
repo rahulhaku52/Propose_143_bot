@@ -1,7 +1,7 @@
 import os
 
-print("BOT_TOKEN =", os.environ.get("BOT_TOKEN"))
-print("CHANNEL_IDS =", os.environ.get("CHANNEL_IDS"))
+print("BOT_TOKEN:", os.environ.get("BOT_TOKEN") is not None)
+print("CHANNEL_IDS:", os.environ.get("CHANNEL_IDS"))
 exit()
 import os, json, requests, subprocess
 
