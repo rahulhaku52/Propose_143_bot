@@ -11,26 +11,26 @@ LOG_FILE = "last_forwarded_id.json"
 
 def load_groups():
 try:
-with open(GROUPS_FILE, "r") as f:
+with open(GROUPS_FILE, "r", encoding="utf-8") as f:
 groups = json.load(f)
 print(f"📋 Loaded groups: {groups}")
 return groups
-except:
+except Exception:
 return []
 
 def save_groups(groups):
-with open(GROUPS_FILE, "w") as f:
+with open(GROUPS_FILE, "w", encoding="utf-8") as f:
 json.dump(groups, f)
 
 def load_last_ids():
 try:
-with open(LOG_FILE, "r") as f:
+with open(LOG_FILE, "r", encoding="utf-8") as f:
 return json.load(f)
-except:
+except Exception:
 return {}
 
 def save_last_ids(data):
-with open(LOG_FILE, "w") as f:
+with open(LOG_FILE, "w", encoding="utf-8") as f:
 json.dump(data, f)
 
 def get_updates():
@@ -41,14 +41,14 @@ try:
     resp = requests.get(url, timeout=20).json()
 
     print("========== UPDATES ==========")
-    print(json.dumps(resp, indent=2))
+    print(json.dumps(resp, indent=2, ensure_ascii=False))
     print("=============================")
 
     return resp
 
 except Exception as e:
     print(f"⚠️ getUpdates error: {e}")
-    return {"ok": False}
+    return {"ok": False, "result": []}
 ```
 
 def detect_new_groups(resp):
@@ -58,7 +58,7 @@ groups = []
 if not resp.get("ok"):
     return groups
 
-for update in resp["result"]:
+for update in resp.get("result", []):
 
     if "my_chat_member" in update:
         chat = update["my_chat_member"]["chat"]
@@ -82,7 +82,7 @@ posts = {}
 if not resp.get("ok"):
     return posts
 
-for update in resp["result"]:
+for update in resp.get("result", []):
 
     if "channel_post" not in update:
         continue
@@ -92,7 +92,7 @@ for update in resp["result"]:
     chat_id = str(post["chat"]["id"])
     message_id = post["message_id"]
 
-    print(f"📢 Channel Post Found")
+    print("📢 Channel Post Found")
     print(f"📢 Channel ID: {chat_id}")
     print(f"📢 Message ID: {message_id}")
 
@@ -111,11 +111,20 @@ payload = {
     "message_id": message_id
 }
 
-r = requests.post(url, json=payload, timeout=20).json()
+try:
+    response = requests.post(
+        url,
+        json=payload,
+        timeout=20
+    ).json()
 
-print(f"➡️ {group_id} => {r}")
+    print(f"➡️ {group_id} => {response}")
 
-return r.get("ok", False)
+    return response.get("ok", False)
+
+except Exception as e:
+    print(f"⚠️ Forward error: {e}")
+    return False
 ```
 
 def git_save():
@@ -156,6 +165,8 @@ check=True
             check=True
         )
 
+        print("✅ Git saved")
+
 except Exception as e:
     print(f"⚠️ Git error: {e}")
 ```
@@ -194,30 +205,32 @@ if not posts:
 
 last_ids = load_last_ids()
 
-total = 0
+total_forwarded = 0
 
 for channel_id in CHANNEL_IDS:
 
     if channel_id not in posts:
         continue
 
-    msg_id = posts[channel_id]
+    message_id = posts[channel_id]
 
-    last_msg = last_ids.get(channel_id, 0)
+    last_message_id = last_ids.get(channel_id, 0)
 
-    if msg_id <= last_msg:
+    if message_id <= last_message_id:
         continue
 
-    for gid in groups:
+    print(f"📤 Forwarding channel {channel_id} message {message_id}")
 
-        if forward_message(gid, channel_id, msg_id):
-            total += 1
+    for group_id in groups:
 
-    last_ids[channel_id] = msg_id
+        if forward_message(group_id, channel_id, message_id):
+            total_forwarded += 1
+
+    last_ids[channel_id] = message_id
 
 save_last_ids(last_ids)
 
-print(f"🎯 Forwarded: {total}")
+print(f"🎯 Forwarded: {total_forwarded}")
 
 git_save()
 ```
