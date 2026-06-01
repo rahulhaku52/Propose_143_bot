@@ -12,14 +12,14 @@ def load_groups():
 try:
 with open(GROUPS_FILE, "r", encoding="utf-8") as f:
 return json.load(f)
-except:
+except Exception:
 return []
 
 def load_last_ids():
 try:
 with open(LOG_FILE, "r", encoding="utf-8") as f:
 return json.load(f)
-except:
+except Exception:
 return {}
 
 def save_last_ids(data):
@@ -28,7 +28,8 @@ json.dump(data, f)
 
 def get_updates():
 url = f"https://api.telegram.org/bot{BOT_TOKEN}/getUpdates?limit=100"
-return requests.get(url, timeout=20).json()
+response = requests.get(url, timeout=20)
+return response.json()
 
 def forward_message(group_id, channel_id, message_id):
 url = f"https://api.telegram.org/bot{BOT_TOKEN}/forwardMessage"
@@ -40,21 +41,22 @@ payload = {
     "message_id": message_id
 }
 
-r = requests.post(url, json=payload, timeout=20).json()
+response = requests.post(url, json=payload, timeout=20).json()
 
-print(f"➡️ {group_id} => {r}")
+print(f"➡️ {group_id} => {response}")
 
-return r.get("ok", False)
+return response.get("ok", False)
 ```
 
 def main():
 groups = load_groups()
-print("📋 Groups:", len(groups))
 
 ```
+print(f"📋 Loaded groups: {groups}")
+
 updates = get_updates()
 
-print(json.dumps(updates, indent=2))
+print(json.dumps(updates, indent=2, ensure_ascii=False))
 
 posts = {}
 
@@ -68,7 +70,7 @@ for update in updates.get("result", []):
 
     posts[channel_id] = message_id
 
-    print(f"📢 Found post: {channel_id} -> {message_id}")
+    print(f"📢 Found channel post: {channel_id} -> {message_id}")
 
 if not posts:
     print("ℹ️ No channel posts")
@@ -76,7 +78,7 @@ if not posts:
 
 last_ids = load_last_ids()
 
-total = 0
+total_forwarded = 0
 
 for channel_id in CHANNEL_IDS:
 
@@ -85,18 +87,21 @@ for channel_id in CHANNEL_IDS:
 
     message_id = posts[channel_id]
 
-    if message_id <= last_ids.get(channel_id, 0):
+    last_message_id = last_ids.get(channel_id, 0)
+
+    if message_id <= last_message_id:
         continue
 
     for group_id in groups:
+
         if forward_message(group_id, channel_id, message_id):
-            total += 1
+            total_forwarded += 1
 
     last_ids[channel_id] = message_id
 
 save_last_ids(last_ids)
 
-print(f"🎯 Forwarded: {total}")
+print(f"🎯 Forwarded: {total_forwarded}")
 ```
 
 if **name** == "**main**":
