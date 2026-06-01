@@ -1,25 +1,24 @@
-import os
-
-print("BOT_TOKEN:", os.environ.get("BOT_TOKEN") is not None)
-print("CHANNEL_IDS:", os.environ.get("CHANNEL_IDS"))
-exit()
 import os, json, requests, subprocess
 
 BOT_TOKEN = os.environ['BOT_TOKEN']
-CHANNEL_IDS = os.environ['CHANNEL_IDS'].split(',')  # একাধিক চ্যানেল
+CHANNEL_IDS = os.environ['CHANNEL_IDS'].split(',')
 GROUPS_FILE = "groups.json"
 LOG_FILE = "last_forwarded_id.json"
 
 def load_groups():
     try:
         with open(GROUPS_FILE, 'r') as f:
-            return json.load(f)
+            groups = json.load(f)
+            print(f"📋 Loaded groups: {groups}")
+            return groups
     except:
+        print("📋 No groups file, starting empty")
         return []
 
 def save_groups(groups):
     with open(GROUPS_FILE, 'w') as f:
         json.dump(groups, f)
+    print(f"💾 Saved groups: {groups}")
 
 def load_last_id():
     try:
@@ -36,6 +35,7 @@ def get_new_groups_via_updates():
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/getUpdates"
     try:
         resp = requests.get(url, timeout=10).json()
+        print(f"🔍 getUpdates response: {json.dumps(resp, indent=2)[:500]}")
         new_ids = []
         if resp.get('ok'):
             for update in resp['result']:
@@ -54,7 +54,6 @@ def get_new_groups_via_updates():
         return []
 
 def get_latest_channel_posts():
-    """সব চ্যানেলের সর্বশেষ পোস্ট চেক"""
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/getUpdates"
     posts = {}
     try:
@@ -78,7 +77,9 @@ def forward_to_group(chat_id, from_chat, message_id):
         "from_chat_id": from_chat,
         "message_id": message_id
     }
+    print(f"📤 Forwarding: from {from_chat} to {chat_id}, msg {message_id}")
     resp = requests.post(url, json=payload, timeout=10).json()
+    print(f"📤 Result: {resp}")
     return resp.get('ok')
 
 def git_save():
@@ -96,49 +97,51 @@ def git_save():
         print(f"⚠️ Git error: {e}")
 
 def main():
-    print("🔍 Checking new groups...")
     groups = load_groups()
     
     new_ids = get_new_groups_via_updates()
-    for gid in new_ids:
-        if gid not in groups:
-            groups.append(gid)
-            print(f"✅ New group: {gid}")
-    
     if new_ids:
+        for gid in new_ids:
+            if gid not in groups:
+                groups.append(gid)
+                print(f"✅ New group: {gid}")
         save_groups(groups)
+        git_save()
+    else:
+        print("ℹ️  No new groups in this run.")
     
-    print(f"📋 Groups: {len(groups)}")
+    print(f"📋 Total groups: {len(groups)}")
     
     if not groups:
-        print("ℹ️  No groups yet.")
+        print("ℹ️  No groups. Add bot to group and send /hello")
         return
     
-    # সব চ্যানেলের পোস্ট চেক
     latest_posts = get_latest_channel_posts()
     if not latest_posts:
         print("ℹ️  No channel posts.")
         return
     
     last_ids = load_last_id()
-    total_forwarded = 0
+    forwarded = 0
     
-    for channel_id in CHANNEL_IDS:
-        # channel_id ইউজারনেম হলে getUpdates থেকে chat_id বের করা
-        # এখানে আমরা সরাসরি ইউজারনেম ব্যবহার করব
+    for ch_id in CHANNEL_IDS:
+        ch_id = ch_id.strip()
         for chat_id_str, msg_id in latest_posts.items():
-            last_for_channel = last_ids.get(channel_id, 0)
-            if msg_id > last_for_channel:
-                print(f"📤 {channel_id}: msg {msg_id}")
+            if str(chat_id_str) != str(ch_id):
+                continue
+            
+            last = last_ids.get(ch_id, 0)
+            if msg_id > last:
+                print(f"📤 {ch_id}: msg {msg_id}")
                 for gid in groups:
-                    ok = forward_to_group(gid, channel_id, msg_id)
+                    ok = forward_to_group(gid, ch_id, msg_id)
                     if ok:
-                        total_forwarded += 1
-                last_ids[channel_id] = msg_id
+                        forwarded += 1
+                last_ids[ch_id] = msg_id
     
-    if total_forwarded > 0:
+    if forwarded:
         save_last_id(last_ids)
-        print(f"🎯 Forwarded {total_forwarded} messages")
+        print(f"🎯 Forwarded {forwarded} messages")
         git_save()
     else:
         print("ℹ️  No new posts.")
