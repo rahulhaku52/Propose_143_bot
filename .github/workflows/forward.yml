@@ -1,11 +1,11 @@
 name: Telegram Auto Forwarder
 
 on:
-  # ⏰ Runs every 15 minutes automatically
+  # ⏰ প্রতি ১৫ মিনিটে auto চালাবে
   schedule:
     - cron: '*/15 * * * *'
 
-  # 🖐️ Manual trigger button (for testing)
+  # 🖐️ Manual test button
   workflow_dispatch:
 
 jobs:
@@ -13,35 +13,36 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1️⃣ Get the code
+      # 1️⃣ Code নামাও
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 2️⃣ Setup Python
+      # 2️⃣ Python setup
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
-      # 3️⃣ Install dependencies
+      # 3️⃣ Dependencies install
       - name: Install requirements
         run: pip install -r requirements.txt
 
-      # 4️⃣ Download saved data (groups.json + state.json)
+      # 4️⃣ আগের data লোড করো (groups.json + state.json)
       - name: Download saved data
         uses: actions/download-artifact@v4
         with:
           name: bot-data
-        continue-on-error: true   # First run may have no data yet
+          path: .
+        continue-on-error: true
 
-      # 5️⃣ Run the forwarder
-      - name: Run forwarder.py
+      # 5️⃣ Forwarder চালাও
+      - name: Run forwarder
         env:
           BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
           CHANNEL_ID: ${{ secrets.CHANNEL_ID }}
         run: python forwarder.py
 
-      # 6️⃣ Save data for next run (groups.json + state.json)
+      # 6️⃣ Data save করো পরের run এর জন্য
       - name: Upload saved data
         uses: actions/upload-artifact@v4
         with:
