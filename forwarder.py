@@ -1,6 +1,6 @@
 import asyncio
 import os
-import time
+import sys
 from telegram import Bot
 from telegram.error import TelegramError
 from storage import (
@@ -10,30 +10,46 @@ from storage import (
 )
 
 # ─────────────────────────────────────────
-# CONFIG (GitHub Secrets থেকে আসবে)
+# CONFIG
 # ─────────────────────────────────────────
 BOT_TOKEN  = os.environ.get("BOT_TOKEN")
-CHANNEL_ID = os.environ.get("CHANNEL_ID")   # Example: -1001234567890
+CHANNEL_ID = os.environ.get("CHANNEL_ID")
 
-# প্রতি গ্রুপে forward করার আগে delay (seconds)
 DELAY_BETWEEN_GROUPS = 30
 
 # ─────────────────────────────────────────
-# নতুন পোস্ট চেক করো
+# ✅ NEW: File Exist Check
+# ─────────────────────────────────────────
+def ensure_files_exist():
+    """groups.json এবং state.json নিশ্চিত করো"""
+    
+    # groups.json চেক
+    if not os.path.exists("groups.json"):
+        print("📁 Creating groups.json...")
+        with open("groups.json", "w") as f:
+            f.write("[]")
+    
+    # state.json চেক
+    if not os.path.exists("state.json"):
+        print("📁 Creating state.json...")
+        with open("state.json", "w") as f:
+            f.write('{"last_message_id": 0}')
+    
+    print("✅ Files are ready!")
+
+# ─────────────────────────────────────────
+# Rest of your functions (Unchanged)
 # ─────────────────────────────────────────
 async def get_new_messages(bot: Bot, last_id: int):
     """Channel থেকে নতুন পোস্ট নিয়ে আসো"""
     new_messages = []
 
     try:
-        # Channel এর সব messages এর মধ্যে নতুনগুলো খোঁজো
-        # Telegram API limit: 100 per call
         updates = await bot.get_updates(limit=100, allowed_updates=["channel_post"])
 
         for update in updates:
             if update.channel_post:
                 msg = update.channel_post
-                # শুধু আমাদের channel এর পোস্ট
                 if str(msg.chat.id) == str(CHANNEL_ID):
                     if msg.message_id > last_id:
                         new_messages.append(msg)
@@ -41,18 +57,13 @@ async def get_new_messages(bot: Bot, last_id: int):
     except TelegramError as e:
         print(f"❌ Error getting messages: {e}")
 
-    # ID অনুযায়ী sort করো (পুরনো আগে)
     new_messages.sort(key=lambda m: m.message_id)
     return new_messages
 
-# ─────────────────────────────────────────
-# সব গ্রুপে Forward করো
-# ─────────────────────────────────────────
 async def forward_to_groups(bot: Bot, message, groups: list):
     """একটা message সব গ্রুপে forward করো"""
-
     success_count = 0
-    fail_count    = 0
+    fail_count = 0
     failed_groups = []
 
     print(f"\n📤 Forwarding message ID: {message.message_id}")
@@ -60,11 +71,10 @@ async def forward_to_groups(bot: Bot, message, groups: list):
 
     for i, group_id in enumerate(groups, 1):
         try:
-            # ✅ Message forward করো
             await bot.forward_message(
-                chat_id     = group_id,
-                from_chat_id= CHANNEL_ID,
-                message_id  = message.message_id,
+                chat_id=group_id,
+                from_chat_id=CHANNEL_ID,
+                message_id=message.message_id,
             )
             print(f"  ✅ [{i}/{len(groups)}] Forwarded to: {group_id}")
             success_count += 1
@@ -74,7 +84,6 @@ async def forward_to_groups(bot: Bot, message, groups: list):
             fail_count += 1
             failed_groups.append(group_id)
 
-        # ⏳ প্রতি গ্রুপে delay
         if i < len(groups):
             print(f"  ⏳ Waiting {DELAY_BETWEEN_GROUPS}s before next group...")
             await asyncio.sleep(DELAY_BETWEEN_GROUPS)
@@ -83,13 +92,16 @@ async def forward_to_groups(bot: Bot, message, groups: list):
     return failed_groups
 
 # ─────────────────────────────────────────
-# MAIN
+# MAIN (Updated with file check)
 # ─────────────────────────────────────────
 async def main():
     print("🚀 Forwarder started...")
+    
+    # ✅ NEW: First ensure files exist
+    ensure_files_exist()
+    
     print(f"📡 Channel ID: {CHANNEL_ID}")
 
-    # Bot init করো
     bot = Bot(token=BOT_TOKEN)
 
     # গ্রুপ লিস্ট লোড করো
@@ -101,11 +113,9 @@ async def main():
 
     print(f"📋 Loaded {len(groups)} groups")
 
-    # শেষ message ID লোড করো
     last_id = load_last_message_id()
     print(f"📌 Last forwarded message ID: {last_id}")
 
-    # নতুন পোস্ট খোঁজো
     new_messages = await get_new_messages(bot, last_id)
 
     if not new_messages:
@@ -114,14 +124,10 @@ async def main():
 
     print(f"🆕 Found {len(new_messages)} new message(s)!")
 
-    # প্রতিটা নতুন পোস্ট forward করো
     for message in new_messages:
         failed = await forward_to_groups(bot, message, groups)
-
-        # State update করো
         save_last_message_id(message.message_id)
 
-        # অল্প বিরতি দাও পরের message এর আগে
         if message != new_messages[-1]:
             await asyncio.sleep(5)
 
