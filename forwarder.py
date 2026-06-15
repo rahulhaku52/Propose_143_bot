@@ -16,8 +16,8 @@ CHANNEL_IDS = [
     "-1002520786250",  # Xauusd_125
 ]
 
-DELAY_BETWEEN_GROUPS   = 10
-DELAY_BETWEEN_CHANNELS = 5
+DELAY_BETWEEN_GROUPS   = 2   # ১০ থেকে ২ সেকেন্ড
+DELAY_BETWEEN_CHANNELS = 2   # ৫ থেকে ২ সেকেন্ড
 
 # ─────────────────────────────────────────
 # File Functions
