@@ -12,7 +12,7 @@ BOT_TOKEN = os.environ.get("BOT_TOKEN")  # 🔐 GitHub Secret থেকে
 
 # 📢 আপনার Channel ID গুলো সরাসরি এখানে দিন
 CHANNEL_IDS = [
-    "-1001234567890",   # আপনার ১ম Channel
+    "-1002520786250",   # আপনার ১ম Channel
     "-1009876543210",   # আপনার ২য় Channel (যদি থাকে)
     # আরো যোগ করতে পারেন
 ]
